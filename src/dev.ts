@@ -1,7 +1,8 @@
-import { Client } from '@discordjs/core'
+import { Client, GatewayDispatchEvents, InteractionType, type APIApplicationCommandInteraction } from '@discordjs/core'
 import { REST } from '@discordjs/rest'
 import { WebSocketManager } from '@discordjs/ws'
 import { transformFile, type Options } from '@swc/core'
+import { watch } from 'chokidar'
 import { resolve } from 'node:path'
 import { SourceTextModule } from 'node:vm'
 
@@ -91,9 +92,55 @@ function create_client(token: string, intents = 0) {
   }({ rest, gateway })
 }
 
+type YuukiInteraction = APIApplicationCommandInteraction & {
+  reply: (payload: { content: string }) => Promise<void>
+}
+
+type YuukiContext = {
+  interaction: YuukiInteraction
+}
+
+type YuukiCommand = {
+  name: string
+  description: string
+  onExecute: (c: YuukiContext) => void | Promise<void>
+}
+
+const commands = new Map<string, YuukiCommand>()
+
 export default async function run(): Promise<void> {
   const config = await load_config()
   const client = create_client(config.token)
+
+  client.on(GatewayDispatchEvents.InteractionCreate, c => {
+    const i = c.data
+    switch (i.type) {
+      case InteractionType.ApplicationCommand: {
+        const command = commands.get(i.data.name)
+        if (!command) {
+          console.warn('unknown command')
+          return
+        }
+        void command.onExecute({
+          interaction: {
+            ...i,
+            reply: payload => c.api.interactions.reply(i.id, i.token, payload),
+          },
+        })
+        break
+      }
+      default:
+        not_implemented()
+    }
+  })
+
+  const watcher = watch('src/commands')
+
+  watcher.on('add', async path => {
+    const command = (await fake_import<{ default: YuukiCommand }>(path, true)).default
+    commands.set(command.name, command)
+    console.info(`added command: ${command.name}`)
+  })
 
   console.info('waiting for client ready')
   await client.ready

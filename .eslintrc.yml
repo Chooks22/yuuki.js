@@ -12,3 +12,6 @@ overrides:
   - files: "*.js"
     extends:
       - "@chookslint/eslint-config-typescript"
+rules:
+  camelcase: off
+  "@typescript-eslint/consistent-type-definitions": off

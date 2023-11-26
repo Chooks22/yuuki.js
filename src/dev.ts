@@ -70,6 +70,13 @@ async function fake_import<T extends object = object>(path: string, should_fail 
   return mod.namespace as T
 }
 
+async function fake_default_import<T extends object = object>(path: string, should_fail: true): Promise<T>
+async function fake_default_import<T extends object = object>(path: string, should_fail?: false): Promise<T | null>
+async function fake_default_import<T extends object = object>(path: string, should_fail = false) {
+  const mod = await fake_import<{ default: T }>(path, should_fail as false)
+  return mod?.default ?? null
+}
+
 async function load_config() {
   for (const config_file of config_files) {
     console.debug(`reading config file: ${config_file}`)
@@ -137,9 +144,15 @@ export default async function run(): Promise<void> {
   const watcher = watch('src/commands')
 
   watcher.on('add', async path => {
-    const command = (await fake_import<{ default: YuukiCommand }>(path, true)).default
+    const command = await fake_default_import<YuukiCommand>(path, true)
     commands.set(command.name, command)
     console.info(`added command: ${command.name}`)
+  })
+
+  watcher.on('change', async path => {
+    const command = await fake_default_import<YuukiCommand>(path, true)
+    commands.set(command.name, command)
+    console.info(`updated command: ${command.name}`)
   })
 
   console.info('waiting for client ready')

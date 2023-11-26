@@ -1,10 +1,18 @@
-import { Client, GatewayDispatchEvents, InteractionType, type APIApplicationCommandInteraction, type LocaleString, type Permissions, type RESTPutAPIApplicationGuildCommandsJSONBody } from '@discordjs/core'
+import { ApplicationCommandType, Client, GatewayDispatchEvents, InteractionType, type APIApplicationCommandInteraction, type LocaleString, type Permissions, type RESTPutAPIApplicationGuildCommandsJSONBody } from '@discordjs/core'
 import { REST } from '@discordjs/rest'
 import { WebSocketManager } from '@discordjs/ws'
 import { transformFile, type Options } from '@swc/core'
 import { watch } from 'chokidar'
+import is_deep_eq from 'fast-deep-equal'
 import { resolve } from 'node:path'
 import { SourceTextModule } from 'node:vm'
+
+type YuukiCommandType = typeof YuukiCommandType[keyof typeof YuukiCommandType]
+const YuukiCommandType = {
+  ChatInput: 'cmd',
+  User: 'usr',
+  Message: 'msg',
+} as const
 
 function get_app_id_from_token(token: string) {
   const b64 = token.slice(0, token.indexOf('.'))
@@ -12,8 +20,107 @@ function get_app_id_from_token(token: string) {
   return buf.toString()
 }
 
+function is_command_eq(a: Record<string, unknown>, b: Record<string, unknown> | null | undefined) {
+  if (!b) {
+    return false
+  }
+  if (a.name !== b.name) {
+    return false
+  }
+  if (a.description !== b.description) {
+    return false
+  }
+  if (Boolean(a.dm_permission) !== Boolean(b.dm_permission)) {
+    return false
+  }
+  if (Boolean(a.nsfw) !== Boolean(b.nsfw)) {
+    return false
+  }
+  if (!is_deep_eq(a.nameLocalizations, b.nameLocalizations)) {
+    return false
+  }
+  if (!is_deep_eq(a.descriptionLocalizaitons, b.descriptionLocalizaitons)) {
+    return false
+  }
+  if ((a.options as unknown[])?.length !== (b.options as unknown[])?.length) {
+    return false
+  }
+  // @todo: deep check options
+  return true
+}
+
+class CommandCache {
+  #cache: Map<string, YuukiCommand>
+  // @todo: cache commands in disk
+  public constructor(iterable?: Iterable<readonly [string, YuukiCommand]>) {
+    this.#cache = new Map(iterable)
+  }
+  public get(key: string) {
+    return this.#cache.get(key)
+  }
+  public set(type: YuukiCommandType, command: YuukiCommand): this {
+    if ('onExecute' in command) {
+      this.#cache.set(`${type}::${command.name}`, command)
+      // @todo: resolve autocomplete
+    } else {
+      // @todo: resolve subcommands
+    }
+    // @todo: disk persistence
+    return this
+  }
+  public resolve(command: APIApplicationCommandInteraction) {
+    let key: string
+    switch (command.data.type) {
+      case ApplicationCommandType.ChatInput:
+        key = `${YuukiCommandType.ChatInput}::${command.data.name}`
+        // @todo: resolve subcommands
+        // @todo: resolve autocomplete
+        break
+      case ApplicationCommandType.User:
+        key = `${YuukiCommandType.User}::${command.data.name}`
+        break
+      case ApplicationCommandType.Message:
+        key = `${YuukiCommandType.Message}::${command.data.name}`
+    }
+    return this.#cache.get(key)
+  }
+  public is_cached(type: YuukiCommandType, command: YuukiCommand): boolean {
+    switch (type) {
+      case YuukiCommandType.ChatInput: {
+        // @todo: resolve subcommands
+        // @todo: resolve autocomplete
+        const cached = this.get(`${YuukiCommandType.ChatInput}::${command.name}`)
+        return is_command_eq(command, cached)
+      }
+      case YuukiCommandType.User: {
+        const cached = this.get(`${YuukiCommandType.User}::${command.name}`)
+        return is_command_eq(command, cached)
+      }
+      case YuukiCommandType.Message: {
+        const cached = this.get(`${YuukiCommandType.Message}::${command.name}`)
+        return is_command_eq(command, cached)
+      }
+    }
+  }
+  public toJSON(): RESTPutAPIApplicationGuildCommandsJSONBody {
+    const data: RESTPutAPIApplicationGuildCommandsJSONBody = []
+    for (const command of this.#cache.values()) {
+      data.push({
+        name: command.name,
+        name_localizations: command.nameLocalizations,
+        description: command.description,
+        description_localizations: command.descriptionLocalizaitons,
+        default_member_permissions: command.defaultMemberPermissions,
+        options: command.options,
+        nsfw: command.nsfw,
+      })
+    }
+    return data
+  }
+}
+
 const module_cache = new Map<string, SourceTextModule>()
-const command_cache = new Map<string, YuukiCommand>()
+const command_cache = new CommandCache()
 
 const swc_config: Readonly<Options> = {
   isModule: true,
@@ -134,25 +241,30 @@ type YuukiCommand = {
   nsfw?: boolean
 }
 
-async function sync_commands(client: YuukiClient, guild_id: string) {
-  console.info('syncing commands')
-  const to_sync: RESTPutAPIApplicationGuildCommandsJSONBody = []
-
-  // @todo: diff command changes
-  for (const command of command_cache.values()) {
-    to_sync.push({
-      name: command.name,
-      name_localizations: command.nameLocalizations,
-      description: command.description,
-      description_localizations: command.descriptionLocalizaitons,
-      default_member_permissions: command.defaultMemberPermissions,
-      options: command.options,
-      nsfw: command.nsfw,
-    })
+function debouce<T extends unknown[]>(fn: (...args: T) => void, ms: number) {
+  let timeout: ReturnType<typeof setTimeout>
+  return (...args: T) => {
+    clearTimeout(timeout)
+    timeout = setTimeout(fn, ms, ...args)
   }
+}
 
+const sync_commands = debouce(async (client: YuukiClient, guild_id: string) => {
+  console.info('syncing commands')
+  const to_sync = command_cache.toJSON()
   await client.api.applicationCommands.bulkOverwriteGuildCommands(client.app_id, guild_id, to_sync)
   console.info('commands synced')
+}, 250)
+
+function set_command(client: YuukiClient, guild_id: string, command: YuukiCommand) {
+  // @todo: user and message commands
+  const is_cached = command_cache.is_cached(YuukiCommandType.ChatInput, command)
+
+  command_cache.set(YuukiCommandType.ChatInput, command)
+
+  if (!is_cached) {
+    sync_commands(client, guild_id)
+  }
 }
 
 export default async function run(): Promise<void> {
@@ -163,7 +275,7 @@ export default async function run(): Promise<void> {
     const i = c.data
     switch (i.type) {
       case InteractionType.ApplicationCommand: {
-        const command = command_cache.get(i.data.name)
+        const command = command_cache.resolve(i)
         if (!command) {
           console.warn('unknown command')
           return
@@ -182,19 +294,18 @@ export default async function run(): Promise<void> {
   })
 
   const watcher = watch('src/commands')
+  // @todo: user and message commands
 
   watcher.on('add', async path => {
     const command = await fake_default_import<YuukiCommand>(path, true)
-    command_cache.set(command.name, command)
+    set_command(client, config.devGuildId, command)
     console.info(`added command: ${command.name}`)
-    await sync_commands(client, config.devGuildId)
   })
 
   watcher.on('change', async path => {
     const command = await fake_default_import<YuukiCommand>(path, true)
-    command_cache.set(command.name, command)
+    set_command(client, config.devGuildId, command)
     console.info(`updated command: ${command.name}`)
-    await sync_commands(client, config.devGuildId)
   })
 
   console.info('waiting for client ready')

@@ -1,7 +1,7 @@
 {
   "name": "yuuki.js",
   "version": "0.0.1",
-  "description": "A Discord Bot Framework",
+  "description": "Next generation discord bot framework",
   "type": "module",
   "license": "MIT",
   "files": [
@@ -33,5 +33,14 @@
     "tsup": "^8.0.1",
     "typescript": "^5.3.2"
   },
-  "author": "Chooks22 <chooksdev@gmail.com>"
+  "author": "Chooks22 <chooksdev@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Chooks22/yuuki.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "framework"
+  ]
 }

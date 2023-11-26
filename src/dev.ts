@@ -1,4 +1,4 @@
-import { Client, GatewayDispatchEvents, InteractionType, type APIApplicationCommandInteraction } from '@discordjs/core'
+import { Client, GatewayDispatchEvents, InteractionType, type APIApplicationCommandInteraction, type LocaleString, type Permissions, type RESTPutAPIApplicationGuildCommandsJSONBody } from '@discordjs/core'
 import { REST } from '@discordjs/rest'
 import { WebSocketManager } from '@discordjs/ws'
 import { transformFile, type Options } from '@swc/core'
@@ -6,7 +6,14 @@ import { watch } from 'chokidar'
 import { resolve } from 'node:path'
 import { SourceTextModule } from 'node:vm'
 
+function get_app_id_from_token(token: string) {
+  const b64 = token.slice(0, token.indexOf('.'))
+  const buf = Buffer.from(b64, 'base64')
+  return buf.toString()
+}
+
 const module_cache = new Map<string, SourceTextModule>()
+const command_cache = new Map<string, YuukiCommand>()
 
 const swc_config: Readonly<Options> = {
   isModule: true,
@@ -31,6 +38,7 @@ function not_implemented(): never {
 
 type YuukiConfig = {
   token: string
+  devGuildId: string
 }
 
 async function fake_import<T extends object = object>(path: string, should_fail: true): Promise<T>
@@ -70,6 +78,16 @@ async function fake_import<T extends object = object>(path: string, should_fail 
   return mod.namespace as T
 }
 
+class YuukiClient extends Client {
+  public app_id: string
+  public ready: Promise<void>
+  public constructor(token: string, rest: REST, gateway: WebSocketManager) {
+    super({ rest, gateway })
+    this.ready = gateway.connect()
+    this.app_id = get_app_id_from_token(token)
+  }
+}
+
 async function fake_default_import<T extends object = object>(path: string, should_fail: true): Promise<T>
 async function fake_default_import<T extends object = object>(path: string, should_fail?: false): Promise<T | null>
 async function fake_default_import<T extends object = object>(path: string, should_fail = false) {
@@ -93,10 +111,7 @@ async function load_config() {
 function create_client(token: string, intents = 0) {
   const rest = new REST({ version: '10' }).setToken(token)
   const gateway = new WebSocketManager({ token, intents, rest })
-
-  return new class extends Client {
-    public ready = gateway.connect()
-  }({ rest, gateway })
+  return new YuukiClient(token, rest, gateway)
 }
 
 type YuukiInteraction = APIApplicationCommandInteraction & {
@@ -109,11 +124,36 @@ type YuukiContext = {
 
 type YuukiCommand = {
   name: string
+  nameLocalizations: Record<LocaleString, string>
   description: string
+  descriptionLocalizaitons: Record<LocaleString, string>
   onExecute: (c: YuukiContext) => void | Promise<void>
+  options?: []
+  defaultMemberPermissions: Permissions
+  dmPermission?: boolean
+  nsfw?: boolean
 }
 
-const commands = new Map<string, YuukiCommand>()
+async function sync_commands(client: YuukiClient, guild_id: string) {
+  console.info('syncing commands')
+  const to_sync: RESTPutAPIApplicationGuildCommandsJSONBody = []
+
+  // @todo: diff command changes
+  for (const command of command_cache.values()) {
+    to_sync.push({
+      name: command.name,
+      name_localizations: command.nameLocalizations,
+      description: command.description,
+      description_localizations: command.descriptionLocalizaitons,
+      default_member_permissions: command.defaultMemberPermissions,
+      options: command.options,
+      nsfw: command.nsfw,
+    })
+  }
+
+  await client.api.applicationCommands.bulkOverwriteGuildCommands(client.app_id, guild_id, to_sync)
+  console.info('commands synced')
+}
 
 export default async function run(): Promise<void> {
   const config = await load_config()
@@ -123,7 +163,7 @@ export default async function run(): Promise<void> {
     const i = c.data
     switch (i.type) {
       case InteractionType.ApplicationCommand: {
-        const command = commands.get(i.data.name)
+        const command = command_cache.get(i.data.name)
         if (!command) {
           console.warn('unknown command')
           return
@@ -145,14 +185,16 @@ export default async function run(): Promise<void> {
 
   watcher.on('add', async path => {
     const command = await fake_default_import<YuukiCommand>(path, true)
-    commands.set(command.name, command)
+    command_cache.set(command.name, command)
     console.info(`added command: ${command.name}`)
+    await sync_commands(client, config.devGuildId)
   })
 
   watcher.on('change', async path => {
     const command = await fake_default_import<YuukiCommand>(path, true)
-    commands.set(command.name, command)
+    command_cache.set(command.name, command)
     console.info(`updated command: ${command.name}`)
+    await sync_commands(client, config.devGuildId)
   })
 
   console.info('waiting for client ready')

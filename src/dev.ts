@@ -1,4 +1,4 @@
-import { ApplicationCommandType, Client, GatewayDispatchEvents, InteractionType, type APIApplicationCommandInteraction, type LocaleString, type Permissions, type RESTPutAPIApplicationGuildCommandsJSONBody } from '@discordjs/core'
+import { ApplicationCommandType, Client, GatewayDispatchEvents, InteractionType, type APIApplicationCommandInteraction, type APIUser, type LocaleString, type Permissions, type RESTPutAPIApplicationGuildCommandsJSONBody } from '@discordjs/core'
 import { REST } from '@discordjs/rest'
 import { WebSocketManager } from '@discordjs/ws'
 import { transformFile, type Options } from '@swc/core'
@@ -226,6 +226,7 @@ type YuukiInteraction = APIApplicationCommandInteraction & {
 }
 
 type YuukiContext = {
+  fetchClient: () => Promise<APIUser>
   interaction: YuukiInteraction
 }
 
@@ -281,6 +282,7 @@ export default async function run(): Promise<void> {
           return
         }
         void command.onExecute({
+          fetchClient: () => c.api.users.getCurrent(),
           interaction: {
             ...i,
             reply: payload => c.api.interactions.reply(i.id, i.token, payload),

@@ -1,4 +1,4 @@
-import { ApplicationCommandType, Client, GatewayDispatchEvents, InteractionType, type APIApplicationCommandInteraction, type APIUser, type LocaleString, type Permissions, type RESTPutAPIApplicationGuildCommandsJSONBody } from '@discordjs/core'
+import { ApplicationCommandType, Client, GatewayDispatchEvents, InteractionType, type APIApplicationCommandInteraction, type APIUser, type LocaleString, type RESTPutAPIApplicationGuildCommandsJSONBody } from '@discordjs/core'
 import { REST } from '@discordjs/rest'
 import { WebSocketManager } from '@discordjs/ws'
 import { transformFile, type Options } from '@swc/core'
@@ -12,6 +12,81 @@ const YuukiCommandType = {
   ChatInput: 'cmd',
   User: 'usr',
   Message: 'msg',
+} as const
+
+type IntentString = keyof Intents
+type Intents = typeof Intents
+const Intents = {
+  GUILDS: 1n << 0n,
+  GUILD_MEMBERS: 1n << 1n,
+  GUILD_MODERATION: 1n << 2n,
+  GUILD_EMOJIS_AND_STICKERS: 1n << 3n,
+  GUILD_INTEGRATIONS: 1n << 4n,
+  GUILD_WEBHOOKS: 1n << 5n,
+  GUILD_INVITES: 1n << 6n,
+  GUILD_VOICE_STATES: 1n << 7n,
+  GUILD_PRESENCES: 1n << 8n,
+  GUILD_MESSAGES: 1n << 9n,
+  GUILD_MESSAGE_REACTIONS: 1n << 10n,
+  GUILD_MESSAGE_TYPING: 1n << 11n,
+  DIRECT_MESSAGES: 1n << 12n,
+  DIRECT_MESSAGE_REACTIONS: 1n << 13n,
+  DIRECT_MESSAGE_TYPING: 1n << 14n,
+  MESSAGE_CONTENT: 1n << 15n,
+  GUILD_SCHEDULED_EVENTS: 1n << 16n,
+  AUTO_MODERATION_CONFIGURATION: 1n << 17n,
+  AUTO_MODERATION_EXECUTION: 1n << 18n,
+} as const
+
+type PermissionString = keyof Permissions
+type Permissions = typeof Permissions
+const Permissions = {
+  CREATE_INSTANT_INVITE: 1n << 0n,
+  KICK_MEMBERS: 1n << 1n,
+  BAN_MEMBER: 1n << 2n,
+  ADMINISTRATOR: 1n << 3n,
+  MANAGE_CHANNELS: 1n << 4n,
+  MANAGE_GUILD: 1n << 5n,
+  ADD_REACTIONS: 1n << 6n,
+  VIEW_AUDIT_LOG: 1n << 7n,
+  PRIORITY_SPEAKER: 1n << 8n,
+  STREAM: 1n << 9n,
+  VIEW_CHANNEL: 1n << 10n,
+  SEND_MESSAGES: 1n << 11n,
+  SEND_TTS_MESSAGES: 1n << 12n,
+  MANAGE_MESSAGES: 1n << 13n,
+  EMBED_LINKS: 1n << 14n,
+  ATTACH_FILES: 1n << 15n,
+  READ_MESSAGE_HISTOR: 1n << 16n,
+  MENTION_EVERYONE: 1n << 17n,
+  USE_EXTERNAL_EMOJIS: 1n << 18n,
+  VIEW_GUILD_INSIGHTS: 1n << 19n,
+  CONNECT: 1n << 20n,
+  SPEAK: 1n << 21n,
+  MUTE_MEMBERS: 1n << 22n,
+  DEAFEN_MEMBERS: 1n << 23n,
+  MOVE_MEMBERS: 1n << 24n,
+  USE_VAD: 1n << 25n,
+  CHANGE_NICKNAME: 1n << 26n,
+  MANAGE_NICKNAMES: 1n << 27n,
+  MANAGE_ROLES: 1n << 28n,
+  MANAGE_WEBHOOKS: 1n << 29n,
+  MANAGE_GUILD_EXPRESSIONS: 1n << 30n,
+  USE_APPLICATION_COMMANDS: 1n << 31n,
+  REQUEST_TO_SPEAK: 1n << 32n,
+  MANAGE_EVENTS: 1n << 33n,
+  MANAGE_THREADS: 1n << 34n,
+  CREATE_PUBLIC_THREADS: 1n << 36n,
+  USE_EXTERNAL_STICKERS: 1n << 37n,
+  SEND_MESSAGES_IN_THREADS: 1n << 38n,
+  USE_EMBEDDED_ACTIVITIES: 1n << 39n,
+  MODERATE_MEMBERS: 1n << 40n,
+  VIEW_CREATOR_MONETIZAION_ANALYTICS: 1n << 41n,
+  USE_SOUNDBOARD: 1n << 42n,
+  CREATE_GUILD_EXPRESSION: 1n << 43n,
+  CREATE_EVENTS: 1n << 44n,
+  USE_EXTERNAL_SOUNDS: 1n << 45n,
+  SEND_VOICE_MESSAGES: 1n << 46n,
 } as const
 
 function get_app_id_from_token(token: string) {
@@ -109,8 +184,10 @@ class CommandCache {
         name: command.name,
         name_localizations: command.nameLocalizations,
         description: command.description,
-        description_localizations: command.descriptionLocalizaitons,
-        default_member_permissions: command.defaultMemberPermissions,
+        description_localizations: command.descriptionLocalizations,
+        default_member_permissions: command.defaultMemberPermissions
+          ?.reduce((acc, p) => acc & Permissions[p], 0n)
+          .toString(),
         options: command.options,
         nsfw: command.nsfw,
       })
@@ -145,6 +222,7 @@ function not_implemented(): never {
 
 type YuukiConfig = {
   token: string
+  intents: IntentString[]
   devGuildId: string
 }
 
@@ -215,10 +293,14 @@ async function load_config() {
   process.exit(1)
 }
 
-function create_client(token: string, intents = 0) {
-  const rest = new REST({ version: '10' }).setToken(token)
+function create_client(config: YuukiConfig) {
+  const token = config.token
+  const intents = config.intents.reduce((i, intent) => i & Intents[intent], 0n) as unknown as 0
+
+  const rest = new REST({ version: '10' }).setToken(config.token)
   const gateway = new WebSocketManager({ token, intents, rest })
-  return new YuukiClient(token, rest, gateway)
+
+  return new YuukiClient(config.token, rest, gateway)
 }
 
 type YuukiInteraction = APIApplicationCommandInteraction & {
@@ -232,12 +314,12 @@ type YuukiContext = {
 
 type YuukiCommand = {
   name: string
-  nameLocalizations: Record<LocaleString, string>
+  nameLocalizations?: Record<LocaleString, string>
   description: string
-  descriptionLocalizaitons: Record<LocaleString, string>
+  descriptionLocalizations?: Record<LocaleString, string>
   onExecute: (c: YuukiContext) => void | Promise<void>
   options?: []
-  defaultMemberPermissions: Permissions
+  defaultMemberPermissions?: PermissionString[]
   dmPermission?: boolean
   nsfw?: boolean
 }
@@ -270,7 +352,7 @@ function set_command(client: YuukiClient, guild_id: string, command: YuukiComman
 
 export default async function run(): Promise<void> {
   const config = await load_config()
-  const client = create_client(config.token)
+  const client = create_client(config)
 
   client.on(GatewayDispatchEvents.InteractionCreate, c => {
     const i = c.data

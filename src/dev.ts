@@ -1,4 +1,4 @@
-import { ApplicationCommandType, Client, GatewayDispatchEvents, InteractionType, type APIApplicationCommandInteraction, type APIUser, type LocaleString, type RESTPutAPIApplicationGuildCommandsJSONBody } from '@discordjs/core'
+import { ApplicationCommandType, Client, GatewayDispatchEvents, InteractionType, type APIApplicationCommandInteraction, type APIMessageApplicationCommandInteraction, type APIUser, type APIUserApplicationCommandInteraction, type LocaleString, type RESTPutAPIApplicationGuildCommandsJSONBody } from '@discordjs/core'
 import { REST } from '@discordjs/rest'
 import { WebSocketManager } from '@discordjs/ws'
 import { transformFile, type Options } from '@swc/core'
@@ -12,6 +12,10 @@ const YuukiCommandType = {
   ChatInput: 'cmd',
   User: 'usr',
   Message: 'msg',
+  // @todo: refactor this out
+  cmd: 1,
+  usr: 2,
+  msg: 3,
 } as const
 
 type IntentString = keyof Intents
@@ -124,16 +128,22 @@ function is_command_eq(a: Record<string, unknown>, b: Record<string, unknown> | 
   return true
 }
 
+type YuukiBaseCommand = {
+  name: string
+  onExecute: (context: any) => void | Promise<void>
+}
+
+// @todo: keep track of individual modules
 class CommandCache {
-  #cache: Map<string, YuukiCommand>
+  #cache: Map<string, YuukiBaseCommand>
   // @todo: cache commands in disk
-  public constructor(iterable?: Iterable<readonly [string, YuukiCommand]>) {
+  public constructor(iterable?: Iterable<readonly [string, YuukiBaseCommand]>) {
     this.#cache = new Map(iterable)
   }
-  public get(key: string) {
-    return this.#cache.get(key)
+  public get<T extends YuukiBaseCommand = YuukiBaseCommand>(key: string) {
+    return this.#cache.get(key) as T
   }
-  public set(type: YuukiCommandType, command: YuukiCommand): this {
+  public set(type: YuukiCommandType, command: YuukiBaseCommand): this {
     if ('onExecute' in command) {
       this.#cache.set(`${type}::${command.name}`, command)
       // @todo: resolve autocomplete
@@ -159,7 +169,7 @@ class CommandCache {
     }
     return this.#cache.get(key)
   }
-  public is_cached(type: YuukiCommandType, command: YuukiCommand): boolean {
+  public is_cached(type: YuukiCommandType, command: YuukiBaseCommand): boolean {
     switch (type) {
       case YuukiCommandType.ChatInput: {
         // @todo: resolve subcommands
@@ -175,12 +185,17 @@ class CommandCache {
         const cached = this.get(`${YuukiCommandType.Message}::${command.name}`)
         return is_command_eq(command, cached)
       }
+      // @todo: remove
+      default: return false
     }
   }
   public toJSON(): RESTPutAPIApplicationGuildCommandsJSONBody {
     const data: RESTPutAPIApplicationGuildCommandsJSONBody = []
-    for (const command of this.#cache.values()) {
+    // @todo: keep track of types
+    for (const [key, command] of this.#cache as Iterable<[string, YuukiCommand]>) {
+      const type = key.slice(0, key.indexOf('::')) as 'cmd' | 'usr' | 'msg'
       data.push({
+        type: YuukiCommandType[type],
         name: command.name,
         name_localizations: command.nameLocalizations,
         description: command.description,
@@ -295,7 +310,7 @@ async function load_config() {
 
 function create_client(config: YuukiConfig) {
   const token = config.token
-  const intents = config.intents.reduce((i, intent) => i & Intents[intent], 0n) as unknown as 0
+  const intents = config.intents.reduce((i, intent) => i & Intents[intent], 0n).toString() as unknown as 0
 
   const rest = new REST({ version: '10' }).setToken(config.token)
   const gateway = new WebSocketManager({ token, intents, rest })
@@ -339,11 +354,11 @@ const sync_commands = debouce(async (client: YuukiClient, guild_id: string) => {
   console.info('commands synced')
 }, 250)
 
-function set_command(client: YuukiClient, guild_id: string, command: YuukiCommand) {
+function set_command(client: YuukiClient, guild_id: string, command: YuukiBaseCommand, type: YuukiCommandType) {
   // @todo: user and message commands
-  const is_cached = command_cache.is_cached(YuukiCommandType.ChatInput, command)
+  const is_cached = command_cache.is_cached(type, command)
 
-  command_cache.set(YuukiCommandType.ChatInput, command)
+  command_cache.set(type, command)
 
   if (!is_cached) {
     sync_commands(client, guild_id)
@@ -367,7 +382,8 @@ export default async function run(): Promise<void> {
           fetchClient: () => c.api.users.getCurrent(),
           interaction: {
             ...i,
-            reply: payload => c.api.interactions.reply(i.id, i.token, payload),
+            // @todo: fix types
+            reply: (payload: object) => c.api.interactions.reply(i.id, i.token, payload),
           },
         })
         break
@@ -377,19 +393,74 @@ export default async function run(): Promise<void> {
     }
   })
 
-  const watcher = watch('src/commands')
-  // @todo: user and message commands
+  type YuukiUserInteraction = APIUserApplicationCommandInteraction & {
+    reply: (payload: { content: string }) => Promise<void>
+  }
 
-  watcher.on('add', async path => {
+  type YuukiUserCommandContext = {
+    fetchClient: () => APIUser
+    interaction: YuukiUserInteraction
+  }
+
+  type YuukiUserCommand = {
+    name: string
+    name_localizations?: Record<LocaleString, string>
+    onExecute: (context: YuukiUserCommandContext) => void | Promise<void>
+  }
+
+  type YuukiMessageInteraction = APIMessageApplicationCommandInteraction & {
+    reply: (payload: { content: string }) => Promise<void>
+  }
+
+  type YuukiMessageCommandContext = {
+    fetchClient: () => APIUser
+    interaction: YuukiMessageInteraction
+  }
+
+  type YuukiMessageCommand = {
+    name: string
+    name_localizations?: Record<LocaleString, string>
+    onExecute: (context: YuukiMessageCommandContext) => void | Promise<void>
+  }
+
+  const w_commands = watch('src/commands')
+  const w_user_commands = watch('src/users')
+  const w_msg_commands = watch('src/messages')
+
+  w_commands.on('add', async path => {
     const command = await fake_default_import<YuukiCommand>(path, true)
-    set_command(client, config.devGuildId, command)
+    set_command(client, config.devGuildId, command, YuukiCommandType.ChatInput)
     console.info(`added command: ${command.name}`)
   })
 
-  watcher.on('change', async path => {
+  w_commands.on('change', async path => {
     const command = await fake_default_import<YuukiCommand>(path, true)
-    set_command(client, config.devGuildId, command)
+    set_command(client, config.devGuildId, command, YuukiCommandType.ChatInput)
     console.info(`updated command: ${command.name}`)
+  })
+
+  w_user_commands.on('add', async path => {
+    const command = await fake_default_import<YuukiUserCommand>(path, true)
+    set_command(client, config.devGuildId, command, YuukiCommandType.User)
+    console.info(`added user command: ${command.name}`)
+  })
+
+  w_user_commands.on('change', async path => {
+    const command = await fake_default_import<YuukiUserCommand>(path, true)
+    set_command(client, config.devGuildId, command, YuukiCommandType.User)
+    console.info(`updated user command: ${command.name}`)
+  })
+
+  w_msg_commands.on('add', async path => {
+    const command = await fake_default_import<YuukiMessageCommand>(path, true)
+    set_command(client, config.devGuildId, command, YuukiCommandType.User)
+    console.info(`added user command: ${command.name}`)
+  })
+
+  w_msg_commands.on('change', async path => {
+    const command = await fake_default_import<YuukiMessageCommand>(path, true)
+    set_command(client, config.devGuildId, command, YuukiCommandType.User)
+    console.info(`updated user command: ${command.name}`)
   })
 
   console.info('waiting for client ready')

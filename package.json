@@ -41,6 +41,9 @@
     "type": "git",
     "url": "git+https://github.com/Chooks22/yuuki.js.git"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "discord",
     "bot",

@@ -8,7 +8,7 @@
     "./dist"
   ],
   "bin": {
-    "yuuki": "./dist/bin.js"
+    "yuuki": "dist/bin.js"
   },
   "exports": {
     ".": "./dist/index.js"
@@ -39,7 +39,7 @@
   "author": "Chooks22 <chooksdev@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Chooks22/yuuki.js"
+    "url": "git+https://github.com/Chooks22/yuuki.js.git"
   },
   "keywords": [
     "discord",

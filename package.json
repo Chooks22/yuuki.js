@@ -10,6 +10,9 @@
   "bin": {
     "yuuki": "./dist/bin.js"
   },
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsup-node src --clean --target es2022 --format esm --dts",
     "dev": "tsup-node src --watch --target es2022 --format esm --dts --sourcemap inline",

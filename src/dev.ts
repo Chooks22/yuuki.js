@@ -3,7 +3,7 @@ import { transformFile, type Options } from '@swc/core'
 import { watch } from 'chokidar'
 import { resolve } from 'node:path'
 import { SourceTextModule } from 'node:vm'
-import { CommandTypeMap, DevClient, type YuukiAutocompleteControl, type YuukiBaseContext, type YuukiChatInputCommand, type YuukiConfig, type YuukiInteractionControl, type YuukiMessageCommand, type YuukiUserCommand } from './dev-client.js'
+import { CommandTypeMap, create_client, type YuukiAutocompleteControl, type YuukiBaseContext, type YuukiChatInputCommand, type YuukiConfig, type YuukiInteractionControl, type YuukiMessageCommand, type YuukiUserCommand } from './dev-client.js'
 
 const module_cache = new Map<string, SourceTextModule>()
 
@@ -87,7 +87,7 @@ async function load_config() {
 
 export default async function run(): Promise<void> {
   const config = await load_config()
-  const client = new DevClient(config)
+  const client = await create_client(config)
 
   client.on(GatewayDispatchEvents.InteractionCreate, c => {
     const i = c.data

@@ -3,6 +3,7 @@ import { ApplicationCommandOptionType, type APIApplicationCommandAutocompleteInt
 import { REST } from '@discordjs/rest'
 import { WebSocketManager } from '@discordjs/ws'
 import is_deep_eq from 'fast-deep-equal'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 
 type CommandPayload = RESTPutAPIApplicationCommandsJSONBody[number]
 
@@ -494,13 +495,12 @@ function convert_option(option: YuukiOption): APIApplicationCommandOption {
   } as APIApplicationCommandOption
 }
 
-export class DevClient extends Client {
-  // @todo: cache commands in disk
+class DevClient extends Client {
   #handler_cache = new Map<string, YuukiHandler<any>>()
-  #command_cache = new Map<string, RESTPutAPIApplicationCommandsJSONBody[number]>()
+  #command_cache: Map<string, CommandPayload>
   public app_id: string
   public ready: Promise<void>
-  public constructor(private config: YuukiConfig) {
+  public constructor(private config: YuukiConfig, cached: [string, CommandPayload][] | null) {
     const token = config.token
     const intents = 0
 
@@ -512,6 +512,7 @@ export class DevClient extends Client {
     this.ready = gateway.connect()
     this.app_id = get_app_id_from_token(token)
     this.sync_commands = debounce(this.sync_commands.bind(this), 250) as () => Promise<void>
+    this.#command_cache = new Map(cached)
   }
   public get_handler<T = unknown>(interaction: APIInteraction): YuukiHandler<T> | undefined {
     switch (interaction.type) {
@@ -631,18 +632,37 @@ export class DevClient extends Client {
       nsfw: command.nsfw,
     }
 
-    const should_sync = did_command_change(payload, this.#command_cache.get(root_key))
+    const cached = this.#command_cache.get(root_key)
+    const should_sync = did_command_change(payload, cached)
 
     this.#command_cache.set(root_key, payload)
 
     if (should_sync) {
+      console.info(`command "${command.name}" changed`)
       void this.sync_commands()
     }
   }
   private async sync_commands() {
     const to_sync = [...this.#command_cache.values()]
+    const to_save = [...this.#command_cache.entries()]
     console.info(`syncing ${to_sync.length} commands`)
-    await this.api.applicationCommands.bulkOverwriteGuildCommands(this.app_id, this.config.devGuildId, to_sync)
-    console.log(`synced ${to_sync.length} commands`)
+    await Promise.all([
+      this.api.applicationCommands.bulkOverwriteGuildCommands(this.app_id, this.config.devGuildId, to_sync),
+      writeFile('.yuuki/.yuukicache', JSON.stringify(to_save), 'utf-8'),
+    ])
+    console.info(`synced ${to_sync.length} commands`)
   }
+}
+
+export async function create_client(config: YuukiConfig): Promise<DevClient> {
+  await mkdir('.yuuki', { recursive: true })
+  const cached = await readFile('.yuuki/.yuukicache', 'utf-8')
+    .then<[string, CommandPayload][]>(JSON.parse)
+    .catch(() => null)
+
+  if (cached) {
+    console.debug(`found ${cached.length} cached commands`)
+  }
+
+  return new DevClient(config, cached)
 }

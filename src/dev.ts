@@ -3,7 +3,7 @@ import { transformFile, type Options } from '@swc/core'
 import { watch } from 'chokidar'
 import { resolve } from 'node:path'
 import { SourceTextModule } from 'node:vm'
-import { CommandTypeMap, DevClient, type YuukiChatInputCommand, type YuukiConfig, type YuukiInteractionControl, type YuukiMessageCommand, type YuukiUserCommand } from './dev-client.js'
+import { CommandTypeMap, DevClient, type YuukiAutocompleteControl, type YuukiBaseContext, type YuukiChatInputCommand, type YuukiConfig, type YuukiInteractionControl, type YuukiMessageCommand, type YuukiUserCommand } from './dev-client.js'
 
 const module_cache = new Map<string, SourceTextModule>()
 
@@ -92,21 +92,29 @@ export default async function run(): Promise<void> {
   client.on(GatewayDispatchEvents.InteractionCreate, c => {
     const i = c.data
     switch (i.type) {
-      case InteractionType.ApplicationCommand: {
-        const handler = client.get_handler<YuukiInteractionControl>(i)
+      case InteractionType.ApplicationCommand:
+      case InteractionType.ApplicationCommandAutocomplete: {
+        const handler = client.get_handler(i)
 
         if (!handler) {
           console.warn('unknown command')
           return
         }
 
-        void handler({
-          fetchClient: () => c.api.users.getCurrent(),
-          interaction: { ...i, reply: p => c.api.interactions.reply(i.id, i.token, p) },
-        })
+        if (i.type === InteractionType.ApplicationCommand) {
+          void handler({
+            fetchClient: () => c.api.users.getCurrent(),
+            interaction: { ...i, reply: p => c.api.interactions.reply(i.id, i.token, p) },
+          } satisfies YuukiBaseContext<YuukiInteractionControl>)
+        } else {
+          void handler({
+            fetchClient: () => c.api.users.getCurrent(),
+            interaction: { ...i, respond: p => c.api.interactions.createAutocompleteResponse(i.id, i.token, p) },
+          } satisfies YuukiBaseContext<YuukiAutocompleteControl>)
+        }
+
         break
       }
-      // @todo: autocomplete
     }
   })
 

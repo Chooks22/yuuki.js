@@ -269,20 +269,20 @@ function did_option_change(a: APIApplicationCommandOption, b: APIApplicationComm
 
       if (_a.type === ApplicationCommandOptionType.String) {
         const _b = b as typeof _a
-        if (Number(_a.min_length) !== Number(_b.min_length)) {
+        if (_a.min_length !== _b.min_length) {
           return true
         }
 
-        if (Number(_a.max_length) !== Number(_b.max_length)) {
+        if (_a.max_length !== _b.max_length) {
           return true
         }
       } else {
         const _b = b as typeof _a
-        if (Number(_a.min_value) !== Number(_b.min_value)) {
+        if (_a.min_value !== _b.min_value) {
           return true
         }
 
-        if (Number(_a.max_value) !== Number(_b.max_value)) {
+        if (_a.max_value !== _b.max_value) {
           return true
         }
       }
@@ -364,19 +364,15 @@ function did_command_change(a: CommandPayload, b: CommandPayload | undefined) {
       return true
     }
 
-    if (!is_deep_eq(_a.description_localizations, b.description_localizations)) {
+    if (!is_deep_eq(_a.description_localizations, _b.description_localizations)) {
       return true
     }
 
-    if (Array.isArray(_a.options) !== Array.isArray(_b.options)) {
+    if (_a.options?.length !== _b.options?.length) {
       return true
     }
 
     if (_a.options && _b.options) {
-      if (Number(_a.options?.length) !== Number(_b.options?.length)) {
-        return true
-      }
-
       for (let i = 0; i < _a.options.length; i++) {
         const __a = _a.options[i]
         const __b = _b.options[i]

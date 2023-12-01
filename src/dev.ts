@@ -2,10 +2,11 @@ import { GatewayDispatchEvents, InteractionType } from '@discordjs/core'
 import { transformFile, type Options } from '@swc/core'
 import { watch } from 'chokidar'
 import { resolve } from 'node:path'
-import { SourceTextModule } from 'node:vm'
+import { SourceTextModule, SyntheticModule, type Module } from 'node:vm'
 import { CommandTypeMap, create_client, type YuukiAutocompleteControl, type YuukiBaseContext, type YuukiChatInputCommand, type YuukiConfig, type YuukiInteractionControl, type YuukiMessageCommand, type YuukiUserCommand } from './dev-client.js'
 
 const module_cache = new Map<string, SourceTextModule>()
+const fake_mod_cache = new Map<string, SyntheticModule>()
 
 const swc_config: Readonly<Options> = {
   isModule: true,
@@ -24,8 +25,64 @@ const config_files: Readonly<string[]> = [
   'yuuki.config.js',
 ]
 
-function not_implemented(): never {
-  throw new TypeError('not implemented')
+async function link_module(spec: string, parent: Module): Promise<Module> {
+  if (spec.startsWith('./') || spec.startsWith('../') || spec.startsWith('/')) {
+    const target = resolve(parent.identifier, '..', spec)
+    let fake_mod = module_cache.get(target)
+
+    if (!fake_mod) {
+      let mod_code: string
+
+      try {
+        const res = await transformFile(target, swc_config)
+        mod_code = res.code
+      } catch {
+        const res = await transformFile(target.replace(/\.js$/, '.ts'), swc_config)
+        mod_code = res.code
+      }
+
+      fake_mod = new SourceTextModule(mod_code, {
+        identifier: target,
+        initializeImportMeta: meta => {
+          meta.url = target
+        },
+        // @ts-expect-error: see below
+        importModuleDynamically: link_module,
+      })
+
+      module_cache.set(target, fake_mod)
+
+      await fake_mod.link(link_module)
+      await fake_mod.evaluate()
+    }
+
+    return fake_mod
+  }
+
+  let fake_mod = fake_mod_cache.get(spec)
+
+  if (!fake_mod) {
+    const resolved = await import(spec) as Record<string, unknown>
+    const target = import.meta.resolve(spec)
+
+    fake_mod = new SyntheticModule(
+      Object.keys(resolved),
+      function() {
+        for (const prop in resolved) {
+          // eslint-disable-next-line @typescript-eslint/no-invalid-this
+          this.setExport(prop, resolved[prop])
+        }
+      },
+      { identifier: target },
+    )
+
+    fake_mod_cache.set(target, fake_mod)
+
+    await fake_mod.link(link_module)
+    await fake_mod.evaluate()
+  }
+
+  return fake_mod
 }
 
 async function fake_import<T extends object = object>(path: string, should_fail: true): Promise<T>
@@ -52,14 +109,13 @@ async function fake_import<T extends object = object>(path: string, should_fail 
     initializeImportMeta: meta => {
       meta.url = mod_id
     },
-    // @todo: module linking
-    importModuleDynamically: not_implemented,
+    // @ts-expect-error SourceTextModule's importModuleDynamically incorrectly extends Script
+    importModuleDynamically: link_module,
   })
 
   module_cache.set(mod_id, mod)
 
-  // @todo: module linking
-  await mod.link(not_implemented)
+  await mod.link(link_module)
   await mod.evaluate()
 
   return mod.namespace as T

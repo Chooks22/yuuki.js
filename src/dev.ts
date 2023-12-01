@@ -231,14 +231,14 @@ export default async function run(): Promise<void> {
 
   w_user_commands.on('add', async path => {
     const command = await fake_import<{ default: YuukiUserCommand }>(path, true)
-    client.add_command(CommandTypeMap.ChatInput, command.data.default)
+    client.add_command(CommandTypeMap.User, command.data.default)
     console.info(`updated user command: ${command.data.default.name}`)
   })
 
   w_user_commands.on('change', async path => {
     const command = await fake_import<{ default: YuukiUserCommand }>(path, true)
     if (!command.is_cached) {
-      client.add_command(CommandTypeMap.ChatInput, command.data.default)
+      client.add_command(CommandTypeMap.User, command.data.default)
       console.info(`updated user command: ${command.data.default.name}`)
     }
   })
@@ -256,14 +256,14 @@ export default async function run(): Promise<void> {
 
   w_msg_commands.on('add', async path => {
     const command = await fake_import<{ default: YuukiMessageCommand }>(path, true)
-    client.add_command(CommandTypeMap.ChatInput, command.data.default)
+    client.add_command(CommandTypeMap.Message, command.data.default)
     console.info(`updated message command: ${command.data.default.name}`)
   })
 
   w_msg_commands.on('change', async path => {
     const command = await fake_import<{ default: YuukiMessageCommand }>(path, true)
     if (!command.is_cached) {
-      client.add_command(CommandTypeMap.ChatInput, command.data.default)
+      client.add_command(CommandTypeMap.Message, command.data.default)
       console.info(`updated message command: ${command.data.default.name}`)
     }
   })

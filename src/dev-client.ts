@@ -522,11 +522,10 @@ class DevClient extends Client {
 
         switch (c.type) {
           case ApplicationCommandType.ChatInput: {
-            let resolved_key!: string
-            let root_key = `${CommandTypeMap.ChatInput}::${c.name}`
+            let resolved_key = `${CommandTypeMap.ChatInput}::${c.name}`
 
             if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
-              root_key = `cmp::${root_key}`
+              resolved_key = `cmp::${resolved_key}`
             }
 
             if (c.options) {
@@ -534,18 +533,18 @@ class DevClient extends Client {
                 switch (option.type) {
                   case ApplicationCommandOptionType.Subcommand: {
                     const subcommand = option
-                    resolved_key = `${root_key}::${subcommand.name}`
+                    resolved_key += `::${subcommand.name}`
                     break
                   }
                   case ApplicationCommandOptionType.SubcommandGroup: {
                     const group = option
-                    const key = `${root_key}::${group.name}`
                     const subcommand = group.options[0]
-                    resolved_key = `${key}::${subcommand.name}`
+                    resolved_key += `::${group.name}::${subcommand.name}`
                   }
                 }
               }
             }
+
             return this.#handler_cache.get(resolved_key)
           }
           case ApplicationCommandType.User:

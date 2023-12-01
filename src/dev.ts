@@ -5,7 +5,13 @@ import { resolve } from 'node:path'
 import { SourceTextModule, SyntheticModule, type Module } from 'node:vm'
 import { CommandTypeMap, create_client, type YuukiAutocompleteControl, type YuukiBaseContext, type YuukiChatInputCommand, type YuukiConfig, type YuukiInteractionControl, type YuukiMessageCommand, type YuukiUserCommand } from './dev-client.js'
 
-const module_cache = new Map<string, SourceTextModule>()
+type CachedModule<T extends Module> = {
+  id: string
+  module: T
+  code: string
+}
+
+const module_cache = new Map<string, CachedModule<SourceTextModule>>()
 const fake_mod_cache = new Map<string, SyntheticModule>()
 
 const swc_config: Readonly<Options> = {
@@ -28,33 +34,38 @@ const config_files: Readonly<string[]> = [
 async function link_module(spec: string, parent: Module): Promise<Module> {
   if (spec.startsWith('./') || spec.startsWith('../') || spec.startsWith('/')) {
     const target = resolve(parent.identifier, '..', spec)
-    let fake_mod = module_cache.get(target)
+    const cached = module_cache.get(target)
+    let code: string
 
-    if (!fake_mod) {
-      let mod_code: string
-
-      try {
-        const res = await transformFile(target, swc_config)
-        mod_code = res.code
-      } catch {
-        const res = await transformFile(target.replace(/\.js$/, '.ts'), swc_config)
-        mod_code = res.code
-      }
-
-      fake_mod = new SourceTextModule(mod_code, {
-        identifier: target,
-        initializeImportMeta: meta => {
-          meta.url = target
-        },
-        // @ts-expect-error: see below
-        importModuleDynamically: link_module,
-      })
-
-      module_cache.set(target, fake_mod)
-
-      await fake_mod.link(link_module)
-      await fake_mod.evaluate()
+    try {
+      const res = await transformFile(target, swc_config)
+      code = res.code
+    } catch {
+      const res = await transformFile(target.replace(/\.js$/, '.ts'), swc_config)
+      code = res.code
     }
+
+    if (cached && cached.code === code) {
+      return cached.module
+    }
+
+    const fake_mod = new SourceTextModule(code, {
+      identifier: target,
+      initializeImportMeta: meta => {
+        meta.url = target
+      },
+      // @ts-expect-error: see below
+      importModuleDynamically: link_module,
+    })
+
+    module_cache.set(target, {
+      id: target,
+      module: fake_mod,
+      code,
+    })
+
+    await fake_mod.link(link_module)
+    await fake_mod.evaluate()
 
     return fake_mod
   }
@@ -85,10 +96,14 @@ async function link_module(spec: string, parent: Module): Promise<Module> {
   return fake_mod
 }
 
-async function fake_import<T extends object = object>(path: string, should_fail: true): Promise<T>
-async function fake_import<T extends object = object>(path: string, should_fail?: false): Promise<T | null>
-async function fake_import<T extends object = object>(path: string, should_fail = false): Promise<T | null> {
-  // @todo: module source code tracking
+type FakeImport<T> = {
+  is_cached: boolean
+  data: T
+}
+
+async function fake_import<T extends object = object>(path: string, should_fail: true): Promise<FakeImport<T>>
+async function fake_import<T extends object = object>(path: string, should_fail?: false): Promise<FakeImport<T> | null>
+async function fake_import<T extends object = object>(path: string, should_fail = false): Promise<FakeImport<T> | null> {
   let code!: string
 
   try {
@@ -100,9 +115,20 @@ async function fake_import<T extends object = object>(path: string, should_fail 
       console.error(e)
       process.exit(1)
     }
+
     return null
   }
 
+  const cached = module_cache.get(path)
+
+  if (cached && cached.code === code) {
+    return {
+      is_cached: true,
+      data: cached.module.namespace as T,
+    }
+  }
+
+  // @todo: cascade update to all dependent module
   const mod_id = resolve(path)
   const mod = new SourceTextModule(code, {
     identifier: mod_id,
@@ -113,28 +139,28 @@ async function fake_import<T extends object = object>(path: string, should_fail 
     importModuleDynamically: link_module,
   })
 
-  module_cache.set(mod_id, mod)
+  module_cache.set(mod_id, {
+    id: mod_id,
+    module: mod,
+    code,
+  })
 
   await mod.link(link_module)
   await mod.evaluate()
 
-  return mod.namespace as T
-}
-
-async function fake_default_import<T extends object = object>(path: string, should_fail: true): Promise<T>
-async function fake_default_import<T extends object = object>(path: string, should_fail?: false): Promise<T | null>
-async function fake_default_import<T extends object = object>(path: string, should_fail = false) {
-  const mod = await fake_import<{ default: T }>(path, should_fail as false)
-  return mod?.default ?? null
+  return {
+    is_cached: false,
+    data: mod.namespace as T,
+  }
 }
 
 async function load_config() {
   for (const config_file of config_files) {
     console.debug(`reading config file: ${config_file}`)
     const config = await fake_import<{ default: YuukiConfig }>(config_file)
-    if (config?.default) {
+    if (config?.data.default) {
       console.info(`found config: ${config_file}`)
-      return config.default
+      return config.data.default
     }
   }
   console.error(new TypeError('could not find a config file'))
@@ -179,39 +205,51 @@ export default async function run(): Promise<void> {
   const w_msg_commands = watch('src/messages')
 
   w_commands.on('add', async path => {
-    const command = await fake_default_import<YuukiChatInputCommand>(path, true)
-    client.add_command(CommandTypeMap.ChatInput, command)
-    console.info(`added command: ${command.name}`)
+    const command = await fake_import<{ default: YuukiChatInputCommand }>(path, true)
+    if (!command.is_cached) {
+      client.add_command(CommandTypeMap.ChatInput, command.data.default)
+      console.info(`added command: ${command.data.default.name}`)
+    }
   })
 
   w_commands.on('change', async path => {
-    const command = await fake_default_import<YuukiChatInputCommand>(path, true)
-    client.add_command(CommandTypeMap.ChatInput, command)
-    console.info(`updated command: ${command.name}`)
+    const command = await fake_import<{ default: YuukiChatInputCommand }>(path, true)
+    if (!command.is_cached) {
+      client.add_command(CommandTypeMap.ChatInput, command.data.default)
+      console.info(`updated command: ${command.data.default.name}`)
+    }
   })
 
   w_user_commands.on('add', async path => {
-    const command = await fake_default_import<YuukiUserCommand>(path, true)
-    client.add_command(CommandTypeMap.User, command)
-    console.info(`added user command: ${command.name}`)
+    const command = await fake_import<{ default: YuukiUserCommand }>(path, true)
+    if (!command.is_cached) {
+      client.add_command(CommandTypeMap.ChatInput, command.data.default)
+      console.info(`updated user command: ${command.data.default.name}`)
+    }
   })
 
   w_user_commands.on('change', async path => {
-    const command = await fake_default_import<YuukiUserCommand>(path, true)
-    client.add_command(CommandTypeMap.User, command)
-    console.info(`updated user command: ${command.name}`)
+    const command = await fake_import<{ default: YuukiUserCommand }>(path, true)
+    if (!command.is_cached) {
+      client.add_command(CommandTypeMap.ChatInput, command.data.default)
+      console.info(`updated user command: ${command.data.default.name}`)
+    }
   })
 
   w_msg_commands.on('add', async path => {
-    const command = await fake_default_import<YuukiMessageCommand>(path, true)
-    client.add_command(CommandTypeMap.Message, command)
-    console.info(`added message command: ${command.name}`)
+    const command = await fake_import<{ default: YuukiMessageCommand }>(path, true)
+    if (!command.is_cached) {
+      client.add_command(CommandTypeMap.ChatInput, command.data.default)
+      console.info(`updated message command: ${command.data.default.name}`)
+    }
   })
 
   w_msg_commands.on('change', async path => {
-    const command = await fake_default_import<YuukiMessageCommand>(path, true)
-    client.add_command(CommandTypeMap.Message, command)
-    console.info(`updated message command: ${command.name}`)
+    const command = await fake_import<{ default: YuukiMessageCommand }>(path, true)
+    if (!command.is_cached) {
+      client.add_command(CommandTypeMap.ChatInput, command.data.default)
+      console.info(`updated message command: ${command.data.default.name}`)
+    }
   })
 
   console.info('waiting for client ready')

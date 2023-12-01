@@ -641,6 +641,21 @@ class DevClient extends Client {
       void this.sync_commands()
     }
   }
+  public remove_command(type: YuukiCommandType, command: YuukiCommand) {
+    const root_key = `${type}::${command.name}`
+    const cmp_key = `cmp::${root_key}`
+
+    for (const key of this.#handler_cache.keys()) {
+      if (key.startsWith(root_key) || key.startsWith(cmp_key)) {
+        this.#handler_cache.delete(key)
+      }
+    }
+
+    this.#command_cache.delete(root_key)
+    console.info(`command "${command.name}" deleted`)
+
+    void this.sync_commands()
+  }
   private async sync_commands() {
     const to_sync = [...this.#command_cache.values()]
     const to_save = [...this.#command_cache.entries()]

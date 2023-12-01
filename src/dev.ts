@@ -218,6 +218,17 @@ export default async function run(): Promise<void> {
     }
   })
 
+  w_commands.on('unlink', path => {
+    const mod_id = resolve(path)
+    const cached = module_cache.get(mod_id)
+
+    if (cached) {
+      const command = cached.module.namespace as { default: YuukiChatInputCommand }
+      client.remove_command(CommandTypeMap.ChatInput, command.default)
+      console.info(`deleted command: ${command.default.name}`)
+    }
+  })
+
   w_user_commands.on('add', async path => {
     const command = await fake_import<{ default: YuukiUserCommand }>(path, true)
     client.add_command(CommandTypeMap.ChatInput, command.data.default)
@@ -232,6 +243,17 @@ export default async function run(): Promise<void> {
     }
   })
 
+  w_user_commands.on('unlink', path => {
+    const mod_id = resolve(path)
+    const cached = module_cache.get(mod_id)
+
+    if (cached) {
+      const command = cached.module.namespace as { default: YuukiUserCommand }
+      client.remove_command(CommandTypeMap.User, command.default)
+      console.info(`deleted user command: ${command.default.name}`)
+    }
+  })
+
   w_msg_commands.on('add', async path => {
     const command = await fake_import<{ default: YuukiMessageCommand }>(path, true)
     client.add_command(CommandTypeMap.ChatInput, command.data.default)
@@ -243,6 +265,17 @@ export default async function run(): Promise<void> {
     if (!command.is_cached) {
       client.add_command(CommandTypeMap.ChatInput, command.data.default)
       console.info(`updated message command: ${command.data.default.name}`)
+    }
+  })
+
+  w_msg_commands.on('unlink', path => {
+    const mod_id = resolve(path)
+    const cached = module_cache.get(mod_id)
+
+    if (cached) {
+      const command = cached.module.namespace as { default: YuukiMessageCommand }
+      client.remove_command(CommandTypeMap.Message, command.default)
+      console.info(`deleted message command: ${command.default.name}`)
     }
   })
 

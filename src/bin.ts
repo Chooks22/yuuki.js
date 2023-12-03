@@ -19,7 +19,9 @@ program.command('dev')
 
 program.command('build')
   .description('generate a production-ready build [TODO]')
-  .action(not_implemented)
+  .action(() => {
+    void import('./build.js').then(mod => mod.default())
+  })
 
 program.command('register')
   .description('register your commands to Discord globally [TODO]')

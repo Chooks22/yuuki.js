@@ -1,9 +1,9 @@
 import { GatewayDispatchEvents, InteractionType } from '@discordjs/core'
-import { transformFile, type Options } from '@swc/core'
 import { watch } from 'chokidar'
 import { resolve } from 'node:path'
 import { SourceTextModule, SyntheticModule, type Module } from 'node:vm'
-import { CommandTypeMap, create_client, type YuukiAutocompleteControl, type YuukiBaseContext, type YuukiChatInputCommand, type YuukiConfig, type YuukiInteractionControl, type YuukiMessageCommand, type YuukiUserCommand } from './dev-client.js'
+import { CommandTypeMap, create_client, type YuukiAutocompleteControl, type YuukiBaseContext, type YuukiChatInputCommand, type YuukiInteractionControl, type YuukiMessageCommand, type YuukiUserCommand } from './dev-client.js'
+import { load_config, transform_file } from './utils.js'
 
 type CachedModule<T extends Module> = {
   id: string
@@ -14,23 +14,6 @@ type CachedModule<T extends Module> = {
 const module_cache = new Map<string, CachedModule<SourceTextModule>>()
 const fake_mod_cache = new Map<string, SyntheticModule>()
 
-const swc_config: Readonly<Options> = {
-  isModule: true,
-  jsc: {
-    target: 'es2022',
-    parser: {
-      syntax: 'typescript',
-    },
-  },
-}
-
-const config_files: Readonly<string[]> = [
-  'yuuki.config.dev.ts',
-  'yuuki.config.dev.js',
-  'yuuki.config.ts',
-  'yuuki.config.js',
-]
-
 async function link_module(spec: string, parent: Module): Promise<Module> {
   if (spec.startsWith('./') || spec.startsWith('../') || spec.startsWith('/')) {
     const target = resolve(parent.identifier, '..', spec)
@@ -38,11 +21,9 @@ async function link_module(spec: string, parent: Module): Promise<Module> {
     let code: string
 
     try {
-      const res = await transformFile(target, swc_config)
-      code = res.code
+      code = await transform_file(target)
     } catch {
-      const res = await transformFile(target.replace(/\.js$/, '.ts'), swc_config)
-      code = res.code
+      code = await transform_file(target.replace(/\.js$/, '.ts'))
     }
 
     if (cached && cached.code === code) {
@@ -108,8 +89,7 @@ async function fake_import<T extends object = object>(path: string, should_fail 
 
   try {
     console.debug(`transforming file: ${path}`)
-    const result = await transformFile(path, swc_config)
-    code = result.code
+    code = await transform_file(path)
   } catch (e) {
     if (should_fail) {
       console.error(e)
@@ -152,19 +132,6 @@ async function fake_import<T extends object = object>(path: string, should_fail 
     is_cached: false,
     data: mod.namespace as T,
   }
-}
-
-async function load_config() {
-  for (const config_file of config_files) {
-    console.debug(`reading config file: ${config_file}`)
-    const config = await fake_import<{ default: YuukiConfig }>(config_file)
-    if (config?.data.default) {
-      console.info(`found config: ${config_file}`)
-      return config.data.default
-    }
-  }
-  console.error(new TypeError('could not find a config file'))
-  process.exit(1)
 }
 
 export default async function run(): Promise<void> {

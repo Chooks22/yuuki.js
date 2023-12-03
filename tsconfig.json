@@ -5,6 +5,7 @@
     "lib": [
       "ESNext"
     ],
+    "allowJs": true,
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",

@@ -4,6 +4,7 @@ import { REST } from '@discordjs/rest'
 import { WebSocketManager } from '@discordjs/ws'
 import is_deep_eq from 'fast-deep-equal'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import type { Adapter } from './build.js'
 
 type CommandPayload = RESTPutAPIApplicationCommandsJSONBody[number]
 
@@ -403,6 +404,7 @@ export type YuukiConfig = {
   token: string
   devGuildId: string
   intents: IntentString[]
+  adapter: Adapter
 }
 
 type YuukiHandler<T> = (context: YuukiBaseContext<T>) => void | Promise<void>

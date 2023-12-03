@@ -1,0 +1,20 @@
+{
+  "pipeline": {
+    "build": {
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {}
+  },
+  "globalDependencies": [
+    "tsconfig.json"
+  ]
+}

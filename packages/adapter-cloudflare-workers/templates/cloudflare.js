@@ -4,7 +4,7 @@ import { InteractionResponseType, InteractionType, verifyKey } from 'discord-int
 const commands = new Map()
 
 // @todo: inline commands
-function set_command(type, command) {
+function set_command(command, type) {
   if (typeof command.onExecute === 'function') {
     commands.set(`${InteractionType.APPLICATION_COMMAND}::${type}::${command.name}`, command.onExecute)
 
@@ -58,9 +58,10 @@ function set_command(type, command) {
 export default {
   /**
    * @param {Request} request
+   * @param {Record<string, string>} env
    * @returns {Promise<Response>}
    */
-  async fetch(request) {
+  async fetch(request, env) {
     if (request.method !== 'POST') {
       return new Response(null, { status: 404 })
     }
@@ -72,7 +73,7 @@ export default {
       await request.clone().arrayBuffer(),
       signature,
       timestamp,
-      'use key',
+      'use pubkey',
     )
 
     if (!isValidRequest) {

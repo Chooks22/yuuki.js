@@ -2,7 +2,7 @@ import { build } from 'esbuild'
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Adapter } from '../build.js'
+import type { Adapter } from 'yuuki.js'
 
 export type AdapterConfig = {
   env?: {
@@ -17,7 +17,7 @@ export default function adapter(config?: AdapterConfig): Adapter {
     capabilities: ['serverless'],
     async adapt(builder) {
       const tmp_dir = await builder.mktemp('cloudflare-workers')
-      const template = await readFile(fileURLToPath(import.meta.resolve('../../templates/cloudflare.js')), 'utf-8')
+      const template = await readFile(fileURLToPath(import.meta.resolve('../templates/cloudflare.js')), 'utf-8')
 
       const imports = [
         ...builder.commands.chatInput.map((path, i) => `import chat_input$${i} from '${path}'`),

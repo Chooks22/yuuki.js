@@ -11,7 +11,7 @@ type CachedModule<T extends Module> = {
   code: string
 }
 
-  const module_cache = new Map<string, CachedModule<SourceTextModule>>()
+const module_cache = new Map<string, CachedModule<SourceTextModule>>()
 const fake_mod_cache = new Map<string, SyntheticModule>()
 
 async function link_module(spec: string, parent: Module): Promise<Module> {

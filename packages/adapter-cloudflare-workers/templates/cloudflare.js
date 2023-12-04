@@ -5,14 +5,15 @@ const commands = new Map()
 
 // @todo: inline commands
 function set_command(command, type) {
+  const base_key = `${type}::${command.name}`
   if (typeof command.onExecute === 'function') {
-    commands.set(`${InteractionType.APPLICATION_COMMAND}::${type}::${command.name}`, command.onExecute)
+    commands.set(`${InteractionType.APPLICATION_COMMAND}::${base_key}`, command.onExecute)
 
     if (Array.isArray(command.options)) {
       for (const option of command.options) {
         if (typeof option.autocomplete === 'function') {
           commands.set(
-            `${InteractionType.APPLICATION_COMMAND_AUTOCOMPLETE}::${type}::${command.name}::${option.name}`,
+            `${InteractionType.APPLICATION_COMMAND_AUTOCOMPLETE}::${base_key}::${option.name}`,
             option.autocomplete,
           )
         }
@@ -26,11 +27,16 @@ function set_command(command, type) {
     for (const option of command.options) {
       switch (option.type) {
         case 1: {
-          commands.set(`${InteractionType.APPLICATION_COMMAND}::${type}::${command.name}::${option.name}`, option.onExecute)
+          const subcommand_key = `${base_key}::${option.name}`
+          commands.set(`${InteractionType.APPLICATION_COMMAND}::${subcommand_key}`, option.onExecute)
+
           if (Array.isArray(option.options)) {
             for (const suboption of option.options) {
               if (typeof suboption.autocomplete === 'function') {
-                command.set(`${InteractionType.APPLICATION_COMMAND_AUTOCOMPLETE}::${type}::${command.name}::${option.name}::${suboption.name}`, suboption.autocomplete)
+                command.set(
+                  `${InteractionType.APPLICATION_COMMAND_AUTOCOMPLETE}::${subcommand_key}::${suboption.name}`,
+                  suboption.autocomplete,
+                )
               }
             }
           }
@@ -38,11 +44,16 @@ function set_command(command, type) {
         }
         case 2: {
           for (const subcommand of option.options) {
-            commands.set(`${InteractionType.APPLICATION_COMMAND}::${type}::${command.name}::${option.name}::${subcommand.name}`, subcommand.onExecute)
+            const subcommand_key = `${base_key}::${option.name}::${subcommand.name}`
+            commands.set(`${InteractionType.APPLICATION_COMMAND}::${subcommand_key}`, subcommand.onExecute)
+
             if (Array.isArray(subcommand.options)) {
               for (const suboption of subcommand.options) {
                 if (typeof suboption.autocomplete === 'function') {
-                  command.set(`${InteractionType.APPLICATION_COMMAND_AUTOCOMPLETE}::${type}::${command.name}::${option.name}::${subcommand.name}::${suboption.name}`, suboption.autocomplete)
+                  command.set(
+                    `${InteractionType.APPLICATION_COMMAND_AUTOCOMPLETE}::${subcommand_key}::${suboption.name}`,
+                    suboption.autocomplete,
+                  )
                 }
               }
             }

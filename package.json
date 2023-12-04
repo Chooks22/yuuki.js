@@ -4,9 +4,6 @@
   "description": "Next generation discord bot framework",
   "private": true,
   "license": "MIT",
-  "workspaces": [
-    "packages/*"
-  ],
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",

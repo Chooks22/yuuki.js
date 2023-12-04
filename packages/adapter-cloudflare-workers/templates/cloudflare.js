@@ -121,6 +121,19 @@ export default {
 
     const result = await new Promise(res => {
       handler({
+        async fetchClient() {
+          if (!env.YUUKI_BOT_TOKEN) {
+            throw new TypeError('bot token was not defined')
+          }
+          // @todo: caching
+          const response = await fetch('https://discord.com/api/v10/applications/@me', {
+            headers: [
+              ['Authorization', `Bot ${env.YUUKI_BOT_TOKEN}`],
+            ],
+          })
+          // @todo: rate limit
+          return response.json()
+        },
         interaction: {
           ...interaction,
           reply: data => res({ type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data }),

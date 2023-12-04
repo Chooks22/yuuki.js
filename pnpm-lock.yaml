@@ -8,18 +8,15 @@ importers:
 
   .:
     devDependencies:
+      '@changesets/cli':
+        specifier: ^2.26.2
+        version: 2.27.1
       turbo:
         specifier: ^1.10.16
         version: 1.10.16
 
   packages/adapter-cloudflare-workers:
     dependencies:
-      '@discordjs/rest':
-        specifier: ^2.2.0
-        version: 2.2.0
-      discord-api-types:
-        specifier: ^0.37.65
-        version: 0.37.65
       discord-interactions:
         specifier: ^3.4.0
         version: 3.4.0
@@ -27,12 +24,9 @@ importers:
         specifier: ^0.19.8
         version: 0.19.8
       yuuki.js:
-        specifier: workspace:^*
+        specifier: workspace:*
         version: link:../yuuki.js
     devDependencies:
-      '@changesets/cli':
-        specifier: ^2.26.2
-        version: 2.27.1
       '@chookslint/eslint-config-typescript':
         specifier: ^3.0.2
         version: 3.0.2(@typescript-eslint/eslint-plugin@6.13.1)(@typescript-eslint/parser@6.13.1)(eslint@8.55.0)(typescript@5.3.2)
@@ -57,9 +51,6 @@ importers:
 
   packages/create-yuuki:
     devDependencies:
-      '@changesets/cli':
-        specifier: ^2.26.2
-        version: 2.27.1
       '@chookslint/eslint-config-typescript':
         specifier: ^3.0.2
         version: 3.0.2(@typescript-eslint/eslint-plugin@6.13.1)(@typescript-eslint/parser@6.13.1)(eslint@8.55.0)(typescript@5.3.2)
@@ -109,9 +100,6 @@ importers:
         specifier: ^3.1.3
         version: 3.1.3
     devDependencies:
-      '@changesets/cli':
-        specifier: ^2.26.2
-        version: 2.27.1
       '@chookslint/eslint-config-typescript':
         specifier: ^3.0.2
         version: 3.0.2(@typescript-eslint/eslint-plugin@6.13.1)(@typescript-eslint/parser@6.13.1)(eslint@8.55.0)(typescript@5.3.2)
@@ -1513,10 +1501,6 @@ packages:
 
   /discord-api-types@0.37.61:
     resolution: {integrity: sha512-o/dXNFfhBpYHpQFdT6FWzeO7pKc838QeeZ9d91CfVAtpr5XLK4B/zYxQbYgPdoMiTDvJfzcsLW5naXgmHGDNXw==}
-    dev: false
-
-  /discord-api-types@0.37.65:
-    resolution: {integrity: sha512-CQHW3Nu04LEHIj1Xps/sfGhTdrowilxnek2tirpLhwvrmgmLr1C6A+4JFLs+0kJMH2IX2QgDyA9GfNehqN+xPQ==}
     dev: false
 
   /discord-interactions@3.4.0:

@@ -4,14 +4,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Adapter } from 'yuuki.js'
 
-export type AdapterConfig = {
-  env?: {
-    token?: string
-    publicKey?: string
-  }
-}
-
-export default function adapter(config?: AdapterConfig): Adapter {
+export default function adapter(): Adapter {
   return {
     name: '@yuukijs/adapter-cloudflare-workers',
     capabilities: ['serverless'],
@@ -34,7 +27,6 @@ export default function adapter(config?: AdapterConfig): Adapter {
       const code = template
         .replaceAll('\'use imports\'', imports)
         .replaceAll('\'use setters\'', setters)
-        .replaceAll('\'use pubkey\'', `env['${config?.env?.publicKey ?? 'PUBLIC_KEY'}']`)
 
       const tmp_out = resolve(tmp_dir, 'index.js')
       await writeFile(tmp_out, code)

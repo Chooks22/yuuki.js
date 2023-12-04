@@ -73,7 +73,7 @@ export default {
       await request.clone().arrayBuffer(),
       signature,
       timestamp,
-      'use pubkey',
+      env.YUUKI_PUBLIC_KEY,
     )
 
     if (!isValidRequest) {

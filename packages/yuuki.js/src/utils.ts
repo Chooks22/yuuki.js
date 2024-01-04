@@ -1,6 +1,6 @@
 import { transformFile, type Options } from '@swc/core'
-import { writeFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import type { YuukiConfig } from './dev-client.js'
 
 const swc_config: Readonly<Options> = {
@@ -25,6 +25,11 @@ export async function transform_file(path: string): Promise<string> {
   return output.code
 }
 
+export async function write_file(path: string, data: string): Promise<void> {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, data)
+}
+
 export async function load_config(dev = true): Promise<YuukiConfig> {
   const _config_files = dev
     ? config_files
@@ -41,7 +46,7 @@ export async function load_config(dev = true): Promise<YuukiConfig> {
     }
 
     const config_path = resolve('.yuuki/.yuukiconfig.js')
-    await writeFile(config_path, code)
+    await write_file(config_path, code)
 
     const mod = await import(config_path) as { default: YuukiConfig }
     return mod.default

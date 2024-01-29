@@ -5,17 +5,22 @@
   "license": "MIT",
   "type": "module",
   "files": [
-    "./dist"
+    "./dist",
+    "./templates"
   ],
   "bin": "dist/bin.js",
   "scripts": {
-    "build": "tsup-node src --clean --target es2022 --format esm --dts",
-    "dev": "tsup-node src --watch --target es2022 --format esm --dts --sourcemap inline",
+    "build": "tsup-node src --clean --target es2022 --format esm",
+    "dev": "tsup-node src --watch --target es2022 --format esm --sourcemap inline",
     "lint": "tsc && eslint ."
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.7.0",
+    "which-pm-runs": "^1.1.0"
   },
   "devDependencies": {
     "@chookslint/eslint-config-typescript": "^3.0.2",
-    "@types/node": "^20.10.0",
+    "@types/node": "^20.10.3",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@typescript-eslint/parser": "^6.12.0",
     "eslint": "^8.54.0",

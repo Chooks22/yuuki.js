@@ -1,0 +1,14 @@
+{
+  "name": "yuuki-bot-js",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "yuuki dev",
+    "build": "yuuki build",
+    "register": "yuuki register"
+  },
+  "devDependencies": {
+    "yuuki.js": "workspace:*"
+  }
+}

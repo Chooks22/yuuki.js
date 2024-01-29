@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "lib": [
+      "ESNext"
+    ],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "moduleDetection": "force",
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true
+  },
+  "exclude": [
+    "dist",
+    ".yuuki"
+  ]
+}

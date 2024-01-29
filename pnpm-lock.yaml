@@ -50,12 +50,19 @@ importers:
         version: 5.3.2
 
   packages/create-yuuki:
+    dependencies:
+      '@clack/prompts':
+        specifier: ^0.7.0
+        version: 0.7.0
+      which-pm-runs:
+        specifier: ^1.1.0
+        version: 1.1.0
     devDependencies:
       '@chookslint/eslint-config-typescript':
         specifier: ^3.0.2
         version: 3.0.2(@typescript-eslint/eslint-plugin@6.13.1)(@typescript-eslint/parser@6.13.1)(eslint@8.55.0)(typescript@5.3.2)
       '@types/node':
-        specifier: ^20.10.0
+        specifier: ^20.10.3
         version: 20.10.3
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.12.0
@@ -72,6 +79,21 @@ importers:
       typescript:
         specifier: ^5.3.2
         version: 5.3.2
+
+  packages/create-yuuki/templates/js:
+    devDependencies:
+      yuuki.js:
+        specifier: workspace:*
+        version: link:../../../yuuki.js
+
+  packages/create-yuuki/templates/ts:
+    devDependencies:
+      typescript:
+        specifier: ^5.3.0
+        version: 5.3.2
+      yuuki.js:
+        specifier: workspace:*
+        version: link:../../../yuuki.js
 
   packages/yuuki.js:
     dependencies:
@@ -363,6 +385,23 @@ packages:
     dependencies:
       eslint: 8.55.0
     dev: true
+
+  /@clack/core@0.3.3:
+    resolution: {integrity: sha512-5ZGyb75BUBjlll6eOa1m/IZBxwk91dooBWhPSL67sWcLS0zt9SnswRL0l26TVdBhb0wnWORRxUn//uH6n4z7+A==}
+    dependencies:
+      picocolors: 1.0.0
+      sisteransi: 1.0.5
+    dev: false
+
+  /@clack/prompts@0.7.0:
+    resolution: {integrity: sha512-0MhX9/B4iL6Re04jPrttDm+BsP8y6mS7byuv0BvXgdXhbV5PdlsHt55dvNsuBCPZ7xq1oTAOOuotR9NFbQyMSA==}
+    dependencies:
+      '@clack/core': 0.3.3
+      picocolors: 1.0.0
+      sisteransi: 1.0.5
+    dev: false
+    bundledDependencies:
+      - is-unicode-supported
 
   /@discordjs/collection@2.0.0:
     resolution: {integrity: sha512-YTWIXLrf5FsrLMycpMM9Q6vnZoR/lN2AWX23/Cuo8uOOtS8eHB2dyQaaGnaF8aZPYnttf2bkLMcXn/j6JUOi3w==}
@@ -2677,6 +2716,10 @@ packages:
     engines: {node: '>=8'}
     dev: true
 
+  /picocolors@1.0.0:
+    resolution: {integrity: sha512-1fygroTLlHu66zi26VoTDv8yRgm0Fccecssto+MhsZ0D/DGW2sm8E8AjW7NU5VVTRt5GxbeZ5qBuJr+HyLYkjQ==}
+    dev: false
+
   /picomatch@2.3.1:
     resolution: {integrity: sha512-JU3teHTNjmE2VCGFzuY8EXzCDVwEqB2a8fsIvwaStHhAWJEeVd1o1QD80CU6+ZdEXXSLbSsuLwJjkCBWqRQUVA==}
     engines: {node: '>=8.6'}
@@ -2968,6 +3011,10 @@ packages:
   /signal-exit@3.0.7:
     resolution: {integrity: sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ==}
     dev: true
+
+  /sisteransi@1.0.5:
+    resolution: {integrity: sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==}
+    dev: false
 
   /slash@3.0.0:
     resolution: {integrity: sha512-g9Q1haeby36OSStwb4ntCGGGaKsaVSjQ68fBxoQcutl5fS1vuY18H3wSt3jFyFtrkx+Kz0V1G85A4MyAdDMi2Q==}
@@ -3454,6 +3501,11 @@ packages:
   /which-module@2.0.1:
     resolution: {integrity: sha512-iBdZ57RDvnOR9AGBhML2vFZf7h8vmBjhoaZqODJBFWHVtKkDmKuHai3cx5PgVMrX5YDNp27AofYbAwctSS+vhQ==}
     dev: true
+
+  /which-pm-runs@1.1.0:
+    resolution: {integrity: sha512-n1brCuqClxfFfq/Rb0ICg9giSZqCS+pLtccdag6C2HyufBrh3fBOiy9nb6ggRMvWOVH5GrdJskj5iGTZNxd7SA==}
+    engines: {node: '>=4'}
+    dev: false
 
   /which-pm@2.0.0:
     resolution: {integrity: sha512-Lhs9Pmyph0p5n5Z3mVnN0yWcbQYUAD7rbQUiMsQxOJ3T57k7RFe35SUwWMf7dsbDZks1uOmw4AecB/JMDj3v/w==}

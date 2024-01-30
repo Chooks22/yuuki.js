@@ -1,4 +1,4 @@
-import { GatewayDispatchEvents, InteractionType } from '@discordjs/core'
+import { ApplicationCommandType, GatewayDispatchEvents, InteractionType } from '@discordjs/core'
 import { watch } from 'chokidar'
 import { resolve } from 'node:path'
 import { SourceTextModule, SyntheticModule, type Module } from 'node:vm'
@@ -153,9 +153,23 @@ export default async function run(): Promise<void> {
         }
 
         if (i.type === InteractionType.ApplicationCommand) {
+          let interaction_data
+          switch (i.data.type) {
+            case ApplicationCommandType.User:
+              interaction_data = {
+                target: i.data.resolved.users[i.data.target_id],
+                caller: i.member?.user ?? i.user,
+              }
+              break
+            case ApplicationCommandType.Message:
+              interaction_data = {
+                target: i.data.resolved.messages[i.data.target_id],
+                caller: i.member?.user ?? i.user,
+              }
+          }
           void handler({
             fetchClient: () => c.api.users.getCurrent(),
-            interaction: { ...i, reply: p => c.api.interactions.reply(i.id, i.token, p) },
+            interaction: { ...i, ...interaction_data, reply: p => c.api.interactions.reply(i.id, i.token, p) },
           } satisfies YuukiBaseContext<YuukiInteractionControl>)
         } else {
           void handler({

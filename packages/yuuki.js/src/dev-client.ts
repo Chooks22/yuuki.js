@@ -1,4 +1,4 @@
-import { ApplicationCommandType, Client, InteractionType, type APIApplicationCommandOption, type APIInteraction, type APIUser, type LocaleString, type RESTPostAPIChatInputApplicationCommandsJSONBody, type RESTPutAPIApplicationCommandsJSONBody } from '@discordjs/core'
+import { ApplicationCommandType, Client, InteractionType, type APIApplicationCommandOption, type APIInteraction, type APIUser, type LocaleString, type RESTPostAPIChatInputApplicationCommandsJSONBody, type RESTPutAPIApplicationCommandsJSONBody, type APIMessage } from '@discordjs/core'
 import { ApplicationCommandOptionType, type APIApplicationCommandAutocompleteInteraction, type APIChatInputApplicationCommandInteraction, type APIMessageApplicationCommandInteraction, type APIUserApplicationCommandInteraction, type InteractionsAPI } from '@discordjs/core/http-only'
 import { REST } from '@discordjs/rest'
 import { WebSocketManager } from '@discordjs/ws'
@@ -441,19 +441,29 @@ export type YuukiChatInputCommand = {
   }
 )
 
+type UserCommandData = {
+  target: APIUser
+  caller: APIUser
+}
+
 export type YuukiUserCommand = {
   name: string
   nameLocalizations?: Partial<Record<LocaleString, string>>
-  onExecute: YuukiHandler<APIUserApplicationCommandInteraction & YuukiInteractionControl>
+  onExecute: YuukiHandler<APIUserApplicationCommandInteraction & YuukiInteractionControl & UserCommandData>
   defaultMemberPermissions?: PermissionString[]
   dmPermission?: boolean
   nsfw?: boolean
 }
 
+type MessageCommandData = {
+  target: APIMessage
+  caller: APIUser
+}
+
 export type YuukiMessageCommand = {
   name: string
   nameLocalizations?: Partial<Record<LocaleString, string>>
-  onExecute: YuukiHandler<APIMessageApplicationCommandInteraction & YuukiInteractionControl>
+  onExecute: YuukiHandler<APIMessageApplicationCommandInteraction & YuukiInteractionControl & MessageCommandData>
   defaultMemberPermissions?: PermissionString[]
   dmPermission?: boolean
   nsfw?: boolean

@@ -96,6 +96,7 @@ export default {
     console.info(interaction)
 
     let handler
+    let interaction_data
 
     switch (interaction.type) {
       case InteractionType.PING:
@@ -109,6 +110,20 @@ export default {
         }
 
         const option = interaction.data.options[0]
+
+        switch (interaction.data.type) {
+          case 2:
+            interaction_data = {
+              target: interaction.data.resolved.users[interaction.data.target_id],
+              caller: interaction.member?.user ?? interaction.user,
+            }
+            break
+          case 3:
+            interaction_data = {
+              target: interaction.data.resolved.messages[interaction.data.target_id],
+              caller: interaction.member?.user ?? interaction.user,
+            }
+        }
 
         switch (option.type) {
           case 1: {
@@ -147,6 +162,7 @@ export default {
         },
         interaction: {
           ...interaction,
+          ...interaction_data,
           reply: data => res({ type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data }),
         },
       })

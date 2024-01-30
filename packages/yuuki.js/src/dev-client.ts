@@ -403,7 +403,6 @@ function did_command_change(a: CommandPayload, b: CommandPayload | undefined) {
 export type YuukiConfig = {
   token: string
   devGuildId: string
-  intents: IntentString[]
   adapter: Adapter
 }
 
@@ -504,6 +503,7 @@ class DevClient extends Client {
   public ready: Promise<void>
   public constructor(private config: YuukiConfig, cached: [string, CommandPayload][] | null) {
     const token = config.token
+    // @todo: infer intents from usage
     const intents = 0
 
     const rest = new REST({ version: '10' }).setToken(token)

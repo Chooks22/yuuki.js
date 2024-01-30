@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import { SourceTextModule, SyntheticModule, type Module } from 'node:vm'
 import { CommandTypeMap, create_client, type YuukiAutocompleteControl, type YuukiBaseContext, type YuukiChatInputCommand, type YuukiInteractionControl, type YuukiMessageCommand, type YuukiUserCommand } from './dev-client.js'
 import { load_config, transform_file } from './utils.js'
+import { mkdir } from 'node:fs/promises'
 
 type CachedModule<T extends Module> = {
   id: string
@@ -135,6 +136,7 @@ async function fake_import<T extends object = object>(path: string, should_fail 
 }
 
 export default async function run(): Promise<void> {
+  await mkdir('.yuuki', { recursive: true })
   const config = await load_config()
   const client = await create_client(config)
 

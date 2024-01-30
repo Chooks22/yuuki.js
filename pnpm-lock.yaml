@@ -82,12 +82,18 @@ importers:
 
   packages/create-yuuki/templates/js:
     devDependencies:
+      '@yuukijs/adapter-cloudflare-workers':
+        specifier: workspace:*
+        version: link:../../../adapter-cloudflare-workers
       yuuki.js:
         specifier: workspace:*
         version: link:../../../yuuki.js
 
   packages/create-yuuki/templates/ts:
     devDependencies:
+      '@yuukijs/adapter-cloudflare-workers':
+        specifier: workspace:*
+        version: link:../../../adapter-cloudflare-workers
       typescript:
         specifier: ^5.3.0
         version: 5.3.2

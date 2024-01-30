@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import get_pm from 'which-pm-runs'
 import { version as yuukijs } from '../../yuuki.js/package.json'
+import { version as adapter } from '../../adapter-cloudflare-workers/package.json'
 import { $, prompt, read_json, write_json } from './utils'
 
 // @todo: non-interactive mode
@@ -13,7 +14,9 @@ import { $, prompt, read_json, write_json } from './utils'
 // @todo: colorize
 intro('create-yuuki')
 
+const adapter_version = `^${adapter}` as const
 const yuukijs_version = `^${yuukijs}` as const
+
 const pm_info = get_pm()
 const pm = pm_info?.name ?? 'npm'
 
@@ -54,6 +57,7 @@ await cp(template, target_dir, {
 // @todo: "fix" non-functioning jsdoc @satisfies export default
 const pkg_json = await read_json('package.json')
 const dev_deps = pkg_json.devDependencies as Record<string, string>
+dev_deps['@yuukijs/adapter-cloudflare-workers'] = adapter_version
 dev_deps['yuuki.js'] = yuukijs_version
 
 await write_json('package.json', pkg_json)

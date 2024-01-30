@@ -9,6 +9,7 @@
     "register": "yuuki register"
   },
   "devDependencies": {
+    "@yuukijs/adapter-cloudflare-workers": "workspace:*",
     "yuuki.js": "workspace:*"
   }
 }

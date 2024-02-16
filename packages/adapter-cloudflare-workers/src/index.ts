@@ -35,6 +35,7 @@ export default function adapter(): Adapter {
         entryPoints: [tmp_out],
         write: true,
         bundle: true,
+        minify: true,
         outfile: 'dist/index.js',
         format: 'esm',
       })
